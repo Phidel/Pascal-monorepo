@@ -1,0 +1,1553 @@
+====== Списки, словари и другие системные классы ======
+см также [[delphi/classes/arrays|Массивы]], [[delphi/classes/arrays#tarray|TArray]]
+=====TDictionary=====
+http://docwiki.embarcadero.com/Libraries/Tokyo/en/System.Generics.Collections.TDictionary
+
+uses System.Generics.Collections
+
+если элементами словаря являются объекты, разрушать их не надо, достаточно Dictionary.Free;
+
+Дубликаты ключей не разрешены.
+
+  * **Items**, например Items[key] := value; если ключа нет - генерирует исключение. Свойство по умолчанию. Во избежание ИС использовать конструкцию ''if Dict.ContainsKey(key) then x := Dict[key];'' или TryGetValue
+  * **ContainsKey**(key): Boolean
+  * **ContainsValue**
+  * **Add** - добавляет пару. Если уже есть такой ключ - генерирует исключение (так как это попытка вставить дубликат ключа)
+  * **AddOrSetValue** - Add key-value pair even when key already exists. Сначала ищет в словаре, если находит - изменяет значение, иначе добавляет в словарь пару
+  * **TryGetValue**(const key; out value): Boolean - пытается получить значение в переменную, если не находит ключ, то возвращает false
+  * Count
+  * Clear
+  * **OnKeyNotify**
+  * **OnValueNotify**
+  * Цикл по значениям: ''for Value in Dictionary.Values do''
+  * Цикл по ключам: ''for key in Dictionary.Keys do''
+  * Итерация по элементам - см. ниже
+  * Сохранение в файл - см. ниже
+
+
+пример 1
+<file pascal ex1.pas>type
+  TCity = class
+    Country: String;
+    Latitude: Double;
+    Longitude: Double;
+  end;
+ 
+var
+  Dictionary: TDictionary<String, TCity>;
+
+  Dictionary := TDictionary<String, TCity>.Create;
+  City := TCity.Create;
+  
+  City.Country := 'Romania';
+  City.Latitude := 47.16;
+  City.Longitude := 27.58;
+  Dictionary.Add('Iasi', City);
+  ... 
+
+  Dictionary.Count
+  if Dictionary.ContainsKey('Iasi') then
+  if Dictionary.ContainsValue(City) then
+  Dictionary.Clear;
+...
+  if (Dictionary.TryGetValue('Iasi', City) = True) then begin
+    writeln(
+    'Iasi is located in ' + City.Country +
+    ' with latitude = ' + FloatToStrF(City.Latitude, ffFixed, 4, 2) +
+    ' and longitude = ' + FloatToStrF(City.Longitude, ffFixed, 4, 2)
+    );
+  end
+  else
+    writeln('Could not find Iasi in the dictionary');
+
+  City := TCity.Create;
+  City.Country := 'Argentina';
+  City.Latitude := -34.6;
+  City.Longitude := -58.45;
+  Dictionary.AddOrSetValue('Buenos Aires', City);
+  try
+    Dictionary.Add('Buenos Aires', City);
+  except
+    on Exception do
+      writeln('Could not add entry. Duplicates are not allowed.');
+  end;
+...
+  { Display all countries. }
+  writeln('All countries:');
+  for Value in Dictionary.Values do
+    writeln(Value.Country);
+  Dictionary.Free;
+  City.Free;
+</file>
+пример 2
+<file pascal ex2.pas>
+type
+  TModuleList = class(TDictionary<string, string>)
+  public
+    WordDef: string;
+    constructor Create; overload;
+    constructor Create(const Capacity: Int32); overload;
+  end;
+
+constructor TModuleList.Create;
+begin
+  inherited Create(TFlxIStringComparer.Ordinal);
+end;
+
+constructor TModuleList.Create(const Capacity: Int32);
+begin
+  inherited Create(Capacity, TFlxIStringComparer.Ordinal);
+end;
+
+type
+  TModuleListComparer = class(TComparer<TModuleList>)
+  public
+    function Compare(const Left, Right: TModuleList): Integer; override;
+  end;
+
+function TModuleListComparer.Compare(const Left, Right: TModuleList): Integer;
+begin
+  Result := CompareText(Left.WordDef, Right.WordDef);
+end;
+
+  ModuleComparer := TModuleListComparer.Create;
+  SearchModList := TModuleList.Create;
+    WordTable: TObjectList<TModuleList>;
+      WordTable := TObjectList<TModuleList>.Create;
+  WordTable.BinarySearch(SearchModList, Index, ModuleComparer);
+
+  WordTable.Sort(ModuleComparer);
+
+  if not WordTable.BinarySearch(SearchModList, Index, ModuleComparer) then
+  begin
+    WordTable.Insert(Index, TModuleList.Create);
+    WordTable[Index].WordDef := word;
+  end;
+
+  list: TModuleList;
+        list := TModuleList.Create(modulecount);
+        list.WordDef := word;
+        for k := 0 to modulecount - 1 do  begin
+          m := fs.ReadLine;
+          list.Add(m, m);
+        end;
+
+        WordTable.Add(list);
+  FreeAndNil(SearchModList);
+</file>
+
+Итерация
+<file pascal>
+uses System.Generics.Collections
+
+  Col1, Col2: array of string;
+  Item: TPair<string, double>;
+
+  Col1 := nil;
+  Col2 := nil;
+  for Item in MinSum do begin
+    col1 := col1 + [Item.Key];
+    col2 := col2 + [Item.Value.ToString];
+  end;
+</file>
+
+Сохранение в файл, универсально сделать нельзя так как не знаем типы членов пары:
+<file pascal>
+uses Variants
+procedure TLocalStorage.Save;
+var
+  T: Text;
+  Item: TPair<string, variant>;
+begin
+  AssignFile(T, WorkingPath + 'storage');
+  SetTextCodePage(T, 65001);
+  Rewrite(T);
+  for Item in FList do begin
+    WriteLn(T, Item.key + '=' + VarToStrDef(Item.value, ''));
+  end;
+  CloseFile(T);
+end;
+</file>
+
+===== TObjectList =====
+[[http://docwiki.embarcadero.com/Libraries/Sydney/en/System.Contnrs.TObjectList|System.Contnrs.TObjectList - RAD Studio API Documentation]]
+
+Прямой потомок класса TList контейнер объектов TObjectList описан в модуле **Contnrs**.
+
+  * property **Items**[Index: Integer]: TObject; default;
+
+Класс обладает более узкой специализацией: он отвечает за хранение и обслуживание объектов, возможно, разнотипных. 
+
+Главное отличие класса от TList в том, что он способен выступать владельцем своих
+объектов. Для этого достаточно установить в true свойство
+
+  * property **OwnsObjects**: Boolean;
+
+Теперь вызов метода **Clear** не просто очистит список, а уничтожит находящиеся в нем объекты. То же самое произойдет и при вызове деструктора контейнера.
+
+  * constructor Create; overload; - по умолчанию AOwnsObjects = true
+  * constructor Create(AOwnsObjects: Boolean); overload;
+
+  * function **IndexOf**(AObject: TObject): Integer; - найти объект в списке
+
+Для поиска в списке объекта класса AClass (поиск по типу) предназначен метод
+
+  * function **FindInstanceOf**(AClass: TClass; AExact: Boolean = True; AStartAt: Integer = 0): Integer;
+
+Если в параметр AExact передано значение false, то в поиск будут вовлечены все потомки
+класса AClass, иначе необходимо точное совпадение класса. Метод начнет просмотр списка
+с позиции AStartAt и остановится на самом первом объекте, соответствующем критериям
+поиска. Его индекс и будет возвращен этой функцией.
+
+Класс реагирует на операции вставки, изменения или удаления его элементов. В этот момент автоматически вызывается процедура уведомления **Notify**. Реализация:
+
+<code pascal>
+procedure TObjectList.Notify(Ptr: Pointer; Action: TListNotification);
+begin
+{$IFNDEF AUTOREFCOUNT}
+  if (Action = lnDeleted) and OwnsObjects then
+    TObject(Ptr).Free;
+{$ENDIF !AUTOREFCOUNT}
+  inherited Notify(Ptr, Action); // на уровне TList ничего не делает
+end;
+</code>
+
+Для добавления в список нового объекта:
+  * function **Add**(aObject: TObject): Integer; - объект добавляется в конец списка и функция возвращает его индекс
+  * procedure **Insert**(Index: Integer; aObject: TObject); - объект вставляется в позицию, указанную в параметре Index
+
+Для изъятия элемента списка:
+  * function **Remove**(aObject: TObject): Integer; - Если список является владельцем этого объекта (OwnsObjects = true), экземпляр изымаемого объекта уничтожается. 
+  * function **Extract**(Item: TObject): TObject; - объект не будет уничтожен вне зависимости от прав списка на объект.
+
+
+TObjectList - прямой наследник класса TList. Поэтому он обладает всеми методами своего предка, в частности Clear, Delete, Move и Sort.
+
+
+Шаблон (Cromis.Scheduler.pas): Delete, Remove в общем случае перекрывать не нужно, но можно для выполнения дополнительных действий
+<code pascal>
+  TEvent = class
+  public
+    constructor Create(Name: string);
+    destructor Destroy; override;
+  end;
+
+  TEventList = class(TObjectList)
+  strict private
+    function GetItem(Index : Integer) : TEvent;
+    procedure SetItem(Index: Integer; Value: TEvent);
+  public
+    function GetFirst: TEvent;
+    function FindEvent(Name: string): TEvent;
+    function Add(EventName: string): TEvent; overload;
+    function Delete(EventName: string): Boolean; overload;
+    function Remove(AObject: TObject): Integer; reintroduce;
+    procedure Delete(Index: Integer) overload; reintroduce;
+    property Items[Index: Integer]: TEvent read GetItem write SetItem; default;
+  end;
+
+function TEventList.Add(EventName: string): TEvent;
+begin
+  Result := TEvent.Create(EventName);
+  Add(Result);
+end;
+
+function TEventList.Delete(EventName: string): Boolean;
+var
+  I: Integer;
+begin
+  Result := False;
+
+  for I := 0 to Count - 1 do begin
+    if Items[I].Name = EventName then begin
+// можно вставить логирование и т.п.
+      Remove(Items[I]);
+      Result := True;
+      Exit;
+    end;
+  end;
+end;
+
+procedure TEventList.Delete(Index: Integer);
+begin
+  if (Index > -1) and (Index < Count) then begin
+// можно вставить логирование и т.п.
+      inherited Delete(Index);
+  end;
+end;
+
+function TEventList.FindEvent(Name: string): TEvent;
+var
+  I: Integer;
+begin
+  Result := nil;
+  for I := 0 to Count - 1 do begin
+    if Items[I].Name = Name then begin
+      Result := Items[I];
+      Exit;
+    end;  
+  end;
+end;
+
+function TEventList.GetFirst: TEvent;
+var
+  I: Integer;
+begin
+  if Count = 0 then
+    Result := nil
+  else begin
+    Result := Items[0];
+    for I := 1 to Count - 1 do // ищет первое по времени
+      if CompareDateTime(Items[I].Schedule.NextEvent, 
+         Result.Schedule.NextEvent) = 1 then
+        Result := Items[I];
+  end;
+end;
+
+function TEventList.GetItem(Index: Integer): TEvent;
+begin
+  Result := (inherited GetItem(Index)) as TEvent;
+end;
+
+function TEventList.Remove(AObject: TObject): Integer;
+begin
+  Result := IndexOf(AObject);
+  if Result >= 0 then begin
+// здесь можно вставить свои действия - логирование, уведомление и т.п.
+     Result := inherited Remove(AObject);
+  end;
+end;
+
+procedure TEventList.SetItem(Index: Integer; Value: TEvent);
+begin
+  inherited SetItem(Index, Value);
+end;
+</code>
+===== TObjectList дженерик =====
+http://docwiki.embarcadero.com/Libraries/Sydney/en/System.Generics.Collections.TObjectList  
+
+[[http://docwiki.embarcadero.com/CodeExamples/Sydney/en/Generics_Collections_TObjectList_(Delphi)|Generics Collections TObjectList (Delphi) - RAD Studio Code Examples]]
+
+unit System.Generics.Collections
+
+Потомок TList
+<code pascal>TObjectList<T: class> = class(TList<T>);</code>
+
+Упорядоченный список объектов любого типа
+
+имеется еще два сходных класса TComponentList и TClassList
+
+У TObjectList есть свойство **OwnsObjects**, которое управляет механизмом контроля за памятью. По умолчанию True - автоматически освобождает объекты при удалении их из списка. Реализовано при помощи перекрытия метода TList.Notify  
+
+ 
+Конструкторы:
+<code pascal>constructor Create(AOwnsObjects: Boolean = True); overload;
+constructor Create(const AComparer: IComparer<T>; AOwnsObjects: Boolean = True); 
+constructor Create(Collection: TEnumerable<T>; AOwnsObjects: Boolean = True); 
+</code>
+
+Из доки:
+<code pascal>uses System.Generics.Collections
+type
+  TNewObject = class
+  private
+    FName: String;
+  public
+    constructor Create(const AName: String);
+    destructor Destroy(); override;
+  end;
+
+constructor TNewObject.Create(const AName: String);
+begin
+  FName := AName;
+end;
+
+destructor TNewObject.Destroy;
+begin
+  { Show a message whenever an object is destroyed. }
+  writeln('Object "' + FName + '" was destroyed!');
+  inherited;
+end;
+
+var
+  List: TObjectList<TNewObject>;
+  Obj: TNewObject;
+begin
+  { Create a new List. }
+  { The OwnsObjects property is set by default to true -- the list will free the owned objects automatically. }
+  List := TObjectList<TNewObject>.Create;
+
+  { Add some items to the List. }
+  List.Add(TNewObject.Create('One'));
+  List.Add(TNewObject.Create('Two'));
+
+  { Add a new item, but keep the reference. }
+  Obj := TNewObject.Create('Three');
+  List.Add(Obj);
+
+  {
+    Remove an instance of the TNewObject class. The destructor
+    is called for the owned objects, because you have set the OwnsObjects
+    to true.
+  }
+  List.Delete(0); // удалили первый - вызвался деструктор
+  List.Extract(Obj); // удаление из списка по указателю, деструктор не вызывается
+
+  { Destroy the List completely -- more message boxes will be shown. }
+  List.Free; // деструктор для второго вызвался
+  readln;
+end.
+</code>
+
+Пример использования ''simpletpl.pas''
+<code pascal>
+
+  TBlock = class;
+  TBlocks = TObjectList<TBlock>; 
+
+  { TBlock }
+  TBlock = class
+    Parent: TBlock; // блок-папа
+    Items: TBlocks; // рекурсивная ссылка на список блоков
+    Text: String;
+    constructor Create(AParent: TBlock);
+    destructor Destroy; override;
+  end;
+</code>
+Далее описываются несколько классов-потомков - специализированных блоков:
+<code pascal>
+  TValueBlock = class(TBlock);
+  TIfBlock = class(TBlock)
+    ElseItems: TBlocks;
+... 
+  end;
+  TLoopBlock = class(TBlock)
+    CurrentIndex: Integer;
+    constructor Create(AParent: TBlock);
+  end;
+</code>
+Далее несколько списков блоков используются в классе-шаблоне отчета:
+<code pascal>
+constructor TSimpleTemplate.Create;
+begin
+  inherited;
+  FBlocks := TBlock.Create(nil);
+  FLoops := TBlocks.Create(False);
+  FIfs := TBlocks.Create(False);
+... 
+destructor TSimpleTemplate.Destroy;
+begin
+  FBlocks.Free;
+  FLoops.Free;
+...
+использование:
+  FBlocks.Items.Clear;
+  FLoops.Clear;
+  FIfs.Clear;
+  while CurPos < Length(ATemplate) do begin
+...
+      NewObject := TBlock.Create(CurrentObject);
+      CurrentObject.Items.Add(NewObject);
+... 
+    NewObject := TValueBlock.Create(CurrentObject);
+    if (CurrentObject is TIfBlock) and (TIfBlock(CurrentObject).IsElseIf) then
+      TIfBlock(CurrentObject).ElseItems.Add(NewObject)
+    else
+      CurrentObject.Items.Add(NewObject);
+</code>
+===== TList - список записей или классов =====
+[[http://docwiki.embarcadero.com/Libraries/Sydney/en/System.Classes.TList|System.Classes.TList - RAD Studio API Documentation]]
+
+TList хранит массив указателей на объекты, причем тип этих объектов может быть различен.
+
+Можно наследовать от TList или делегировать, то есть экземпляр TList часто просто инкапсулируется в другой класс в качестве внутреннего объекта-поля.
+
+{{https://i.imgur.com/woRfe90.png?direct&400|}}
+
+  * property Capacity: Integer;
+  * property Count: Integer;
+  * property **Items**[Index: Integer]: Pointer;
+  * property List: PPointerList; - только для чтения - для прямого доступа к массиву указателей
+  * function Add(Item: Pointer): Integer; - Добавляет в конец списка указатель на новый элемент Item. Вызывает Notify(Item, lnAdded)
+  * procedure Exchange(Index1, Index2: Integer); - Меняет местами элементы массива
+  * procedure Move(CurIndex, NewIndex: Integer); Переместит элемент массива из позиции CurIndex в позицию NewIndex (удаляет со старого места и вставляет на новое, не затирая элемент на новом месте, а вставляя рядом)
+  * function Expand: TList; - Если Count=Capacity, увеличивает размер массива. Если размер списка более 8 элементов, метод расширит список на 16 элементов, от 5 до 8 - на 8, менее 5 - на 4 элемента
+  * function First: Pointer; - Вернет указатель первого элемента в массиве = Get(0)
+  * function Last: Pointer; 
+  * procedure Insert(Index: Integer; Item: Pointer); - Вставит в массив элемент Item. Вызывает Notify(Item, lnAdded)
+  * procedure **Sort**(Compare: TListSortCompare); - Сортирует элементы массива с помощью QuickSort
+  * type TListSortCompare = function (Item1, Item2: Pointer): Integer;
+  * function IndexOfItem(Item: Pointer; Direction: TDirection): Integer; - Находит в массиве индекс ячейки, в которой хранится указатель Item. Поиск осуществляется линейно, направление уточняет параметр Direction: TDirection = (FromBeginning, FromEnd);
+  * function **IndexOf**(Item: Pointer): Integer;
+  * procedure Assign(ListA: TList; AOperator: TListAssignOp; ListB: TList); - операции 
+    * laCopy: 12345, 346 = 346 : only those in the new list
+    * laAnd: 12345, 346 = 34 : intersection of the two lists
+    * laOr:  12345, 346 = 123456 : union of the two lists
+    * laXor: 12345, 346 = 1256 : only those not in both lists
+    * laSrcUnique: 12345, 346 = 125 : only those unique to source
+    * laDestUnique: 12345, 346 = 6 : only those unique to dest
+
+> Предельный размер массива Capacity определен константой MaxListSize = Maxint div 16, что составляет примерно 134 миллиона записей. Другими словами, максимальная размерность определяется ресурсами вашего ПК. - устарело. 
+
+В delphi 10.2:
+
+<code pascal>TPointerList = array of Pointer;</code>
+
+Максимальный теоретический размер Maxint - SizeOf(Longint) * 2, см исходник -  System.DynArraySetLength procedure, строка 20628:
+
+<code pascal>Inc(neededSize, Sizeof(Longint)*2);
+  if neededSize < 0 then
+     Error(reRangeError);
+</code>
+
+На практике выдаст Out of Memory гораздо раньше
+
+==== Удаление элементов и очистка списка ====
+Чтобы деструктор списка освобождал память для элементов, нужно
+  * перегрузить метод Clear (он вызывается из деструктора списка)
+  * либо использовать Notify
+
+Чтобы Delete, Remove освобождал память для элементов, нужно
+  * определить метод Delete
+  * либо использовать Notify
+
+Идеологически правильнее использовать вроде бы Notify, он для этого был задуман. Например в классе TObjectList переопределен Notify:
+
+<code pascal>
+  if (Action = lnDeleted) and OwnsObjects then
+    TObject(Ptr).Free;
+  inherited Notify(Ptr, Action);
+</code>
+
+Но на практике смысл уведомлений обычно не в том, чтобы разрушить объект (как-то не ожидаю, что Notify убьет объект - газета прочитала человека, вместо того, чтобы наоборот), и по смыслу лучше переопределять Delete и Clear (так делают во многих библиотеках).
+
+----
+
+  * procedure **Delete**(Index: Integer); - Удаляет указатель из ячейки с номером Index. Оставшиеся элементы массива смещаются на свободное место. Свойство Count уменьшается на 1. Вызывает Notify
+  * procedure **Clear**; - Очищает массив, Count=Capacity=0. Вызывает Notify (lnDeleted) для каждого элемента
+  * function Remove(Item: Pointer): Integer;
+  * function RemoveItem(Item: Pointer; Direction: TDirection): Integer; - Находит (IndexOfItem) и удаляет (Delete+Notify) из массива указатель, равный Item, и возвращает индекс удаляемого элемента. Направление поиска уточняет параметр Direction
+  * Extract - ищет с помощью IndexOf, удаляет с помощью Delete и уведомляет с помощью Notify. Удаление происходит со смещением последующих элементов
+  * ExtractItem(Item: Pointer; Direction: TDirection): Pointer;
+  * procedure Pack; - Упаковка массива элементов. Из массива удаляются все указатели nil, остальные элементы смещаются к началу списка
+  * procedure **Notify**(Ptr: Pointer; Action: TListNotification); virtual; - в TList метод ничего не делает. (lnAdded, lnExtracted, lnDeleted). Можно перекрыть у потомков чтобы реагировать на уведомления.
+
+Все отвечающие за удаление методы класса TList не разрушают данные в памяти, а просто удаляют указатели на них. Это справедливо и для деструктора TList: деструктор просто уничтожает массив с указателями, не затрагивая данные и объекты - деструктор по умолчанию делает только одно - вызывает Clear. 
+
+Можно поместить один указатель на элемент в несколько списков, и быть уверенным, что он будет удален по ошибке.
+
+Нельзя удалять элементы в цикле по возрастанию переменной цикла, нужно использовать downto:
+
+{{https://i.imgur.com/upjdGU8.png?direct&300|}}
+
+
+> В версиях до Delphi 5 TList очищался путем освобождения внутреннего массива указателей, что было операцией класса 0(1). Поскольку компания Borland хотела, чтобы класс TObjectList при определенных условиях мог освобождать содержащиеся в нем объекты, она для обеспечения такой функциональности изменила основной принцип работы TList. Теперь класс TList очищается путем вызова для каждого элемента нового виртуального метода Notify. Метод TList.Notify не выполняет никаких операций, но метод TObjectList.Notify при удалении элементов из списка освобождает занимаемую ими память.
+> Вы можете спросить: "Ну и что?" Дело в том, что этот новый метод очистки содержимого класса TList принадлежит к операциям класса О(n). Таким образом, чем больше элементов в списке, тем больше времени потребуется на его очистку. По сравнению с предыдущими версиями TList, новая версия стала работать гораздо медленнее. Каждый экземпляр каждого класса, использующего TList, теперь будет работать медленнее. И помните, единственной причиной снижения быстродействия стало нежелание компании Borland воспользоваться делегированием, вместо наследования. По мнению компании, было намного удобнее изменить стандартный класс. [Бакнелл]
+==== Использование ====
+
+
+Класс можно использовать в "сыром" виде, но тогда нужно вручную заниматься приведением типов:
+
+<code pascal>
+type
+  TCustomer = class
+  private
+    FName: string;
+  private
+    constructor Create(const Name: string);
+    function ShowName: string;
+  end;
+
+...
+
+List: TList; - заполнен где-то выше
+
+procedure PrintCustomersInfo(List: TList);
+var
+  Item: Pointer;
+  Customer: TCustomer;
+begin
+  for Item in List do
+    ShowMessage((TObject(Item) as TCustomer).ShowName);
+end;
+
+procedure PrintCustomersInfo2(List: TList);
+var
+  Item: Pointer;
+  Customer: TCustomer;
+begin
+  for Item in List do
+    if TObject(Item) is TCustomer then
+      ShowMessage((TObject(Item) as TCustomer).ShowName);
+end;
+</code>
+
+==== Записи в качестве элементов ====
+Поэтому практичнее сделать обертку с поддержкой типа.
+
+Шаблон такого класса:
+<file pascal ex.pas>
+type
+  PMyRec=^TMyRec;
+  TMyRec = packed record
+    Value: Integer;
+    AByte: Byte;
+  end;
+
+  TMyRecList = class(TList)
+  private
+    function Get(Index: Integer): PMyRec;
+  public
+    destructor Destroy; override;
+    function Add(Value: PMyRec): Integer;
+    property Items[Index: Integer]: PMyRec read Get; default;
+  end;
+
+function TMyRecList.Add(Value: PMyRec): Integer;
+begin
+  Result := inherited Add(Value);
+end;
+
+destructor TMyRecList.Destroy;
+var
+  i: Integer;
+begin
+  for i := 0 to Count - 1 do
+    FreeMem(Items[i]); // или Dispose(Items[i]); или Items[i].Free;
+  inherited;
+end;
+
+function TMyRecList.Get(Index: Integer): PMyRec;
+begin
+  Result := PMyRec(inherited Get(Index));
+end;
+
+// Использование:
+
+var
+  MyRecList: TMyRecList;
+  MyRec: PMyRec;
+  tmp: Integer;
+begin
+  MyRecList := TMyRecList.Create;
+  for tmp := 0 to 9 do begin
+    GetMem(MyRec, SizeOf(TMyRec)); // или New(MyRec); или MyObj := TMyClass.Create; 
+    MyRec.Value := tmp;
+    MyRec.AByte := Byte(tmp);
+    MyRecList.Add(MyRec);
+  end;
+
+  for tmp := 0 to MyRecList.Count - 1 do
+    Writeln('Value: ', MyRecList[tmp].Value, ' AByte: ', MyRecList[tmp].AByte);
+
+  WriteLn('  Press Enter to free the list');
+  ReadLn;
+  MyRecList.Free;
+</file>
+
+<wrap hi>Внимание.</wrap> Если поля записи только простых типов (числа, короткие строки), то можно использовать GetMem/FreeMem. Если есть поля типа String, Array of, Variant и прочие с управляемым rtl временем (есть счетчик ссылок), нужно использовать New/Dispose (иначе получим AV из-за мусора в счетчике ссылок, а из-за отсутствия финализации наверное будет утечка памяти).
+
+  * New = GetMem + FillChar(Ptr^, Size, 0) = GetMem + Initialize
+  * Dispose = Finalize + FreeMem
+
+Dispose финализирует объекты с управляемым временем жизни (длинные строки, экземпляры интерфесов, динамические массив etc.) автоматически в отличие от FreeMem.
+
+Сортировки через метод 
+  procedure Sort(Compare: TListSortCompare);
+
+Поиск IndexOf, IndexOfItem
+
+В TList виртуальными являются методы Destroy, Clear, Notify, Grow, Error
+
+Записи нужно размещать на куче с помощью GetMem или New (а не на стеке как обычные переменные).
+
+Приведение указателей не требуется. Память освобождается автоматически в деструкторе.
+
+Преимущество перед динамическими массивами: быстрое добавление, удаление, перестановка элементов, а значит, можно сделать быструю сортировку. 
+
+Недостаток: Небольшие накладные расходы на указатели.
+
+Можно избежать распределения памяти вне класса, добавив еще один метод Add с параметрами для каждого поля записи (удобно лишь когда полей не так много)
+<file pascal>
+function TMyRecList.Add(AValue: Integer; AByte: Byte): Integer; overload;
+var 
+  MyRec: PMyRec;
+begin
+  GetMem(MyRec, SizeOf(TMyRec)); // New(MyRec);
+  MyRec.Value := AValue;
+  MyRec.AByte := AByte;
+  Result := inherited Add(MyRec);
+end;
+</file>
+
+Или же можно передавать заполненную запись в качестве параметра, а внутри метода Add распределять память и копировать ее поля в запись на куче. Пример:
+
+<code pascal>
+procedure TStateList.SetItem(const Index: Integer;
+  const Value: THTMLCheckListDataWrapper);
+var
+  AItem: THTMLCheckListDataWrapper;
+begin
+  AItem := THTMLCheckListDataWrapper.Create;
+  try
+    AItem.State := Value.State;
+    AItem.Disabled := Value.Disabled;
+    AItem.Indent := Value.Indent;
+    AItem.Comment := Value.Comment;
+  except
+    AItem.Free;
+    raise;
+  end;
+  inherited Items[Index] := AItem;
+end;
+</code>
+
+> What will happen if user executes MyRecList.Delete(i) ? The right way is to override Delete method or to catch Notify(cnRemoved). Moreover if the record contains dynamic-type fields (dynamic arrays, strings), you'll have to Finalize it before freeing to avoid memory leak. 
+
+==== Классы в качестве элементов списка ====
+
+Вариант - использовать вместо записей классы и потомок от TList или TObjectList. Или использовать дженерик TList + классы. 
+
+  * Переменные типа Record are value-Types in Delphi. При добавлении такой переменной в TList копируется вся запись
+  * Переменные типа класс TMyClass are by-reference values - ссылочные (pointer value). Поэтому при добавлении такой переменной в TList копируется только указатель
+
+
+См. ''dea.ProxyUtils'', ''dea.lists''
+
+Список экземпляров класс отличается лишь тем, что вместо New нужно вызывать конструктор класса, вместо Dispose - деструктор класса.
+
+В простейшем случае, когда не нужно управлять созданием и разрушением элементов, можно создать список указателей:
+
+<code pascal>
+  TCacheItem = class
+   ...
+  end;
+
+  TItemList = class(TList)
+  private
+    function GetItem(Index: Integer): TCacheItem;
+    procedure SetItem(Index: Integer; const Value: TCacheItem);
+  public
+    property Items[Index: Integer]: TCacheItem read GetItem write SetItem; default;
+  end;
+
+function TCacheItemList.GetItem(Index: Integer): TCacheItem;
+begin
+  Result := TCacheItem(inherited Items[Index]);
+end;
+
+procedure TCacheItemList.SetItem(Index: Integer; const Value: TCacheItem);
+begin
+  inherited Items[Index] := Value;
+end;
+</code>
+
+Метод поиска по имени:
+
+<code pascal>
+function TMyList.ByName(const AName: string): TMyItem;
+var
+  i: integer;
+begin
+  for i := 0 to Count - 1 do
+    if AnsiCompareText(Items[i].Name, AName) = 0 then begin
+      Result := Items[i];
+      Exit;
+    end;
+  Result := nil;
+end;
+</code>
+
+Метод Clear
+<code pascal>
+procedure Clear; override;
+... 
+procedure TDoubleList.Clear;
+var
+  I: Integer;
+begin
+  for I := 1 to Count do
+    TDoubleItem(inherited Items[I - 1]).Free; // или Dispose
+
+  inherited Clear;
+end;
+</code>
+Метод Delete
+<code pascal>
+procedure Delete(Index: Integer);
+... 
+// для класса
+procedure TDateTimeList.Delete(Index: Integer);
+begin
+  TDateTimeObject(inherited Items[Index]).Free;
+  inherited Delete(Index);
+end;
+</code>
+
+==== TList как поле класса ====
+<code pascal>
+    PBudgetDesc = ^TBudgetDesc;
+    TBudgetDesc = Record
+      Index          : Integer;
+      Name           : String;
+      ExcelFile      : String;
+    end;
+
+    TBudgetList = Class
+    private
+      fList: TList;
+      function  GetItem(Index: Integer): TBudgetDesc;
+      procedure SetItem(Index: Integer; Item: TBudgetDesc);
+      function  GetCount: Integer;
+    public
+      constructor Create;
+      destructor  Destroy; override;
+      function    Add(const Item: TBudgetDesc): Integer;
+      procedure   Delete(Index: Integer);
+      procedure   Clear;
+      procedure   LoadFromFile( aFileName: String );
+      property    Count: Integer read GetCount;
+      property  Items[Index: Integer]: TBudgetDesc read GetItem write SetItem; default;
+    end;
+
+function TBudgetList.Add(const Item: TBudgetDesc): Integer;
+var
+  P: PBudgetDesc;
+begin
+  New( P );
+  P^ := Item;
+  Result := fList.Add(P);
+end;
+
+procedure TBudgetList.Clear;
+var
+  I: Integer;
+begin
+  for I := fList.Count-1 downto 0 do
+    Delete(I);
+end;
+
+constructor TBudgetList.Create;
+begin
+  inherited Create;
+  fList := TList.Create;
+end;
+
+procedure TBudgetList.Delete(Index: Integer);
+var
+  Item: PBudgetDesc;
+begin
+  Item := fList[Index];
+  fList.Delete(Index);
+  Dispose(Item);
+end;
+
+destructor TBudgetList.Destroy;
+begin
+  if fList <> nil then
+     Clear;
+  fList.Free;
+  inherited Destroy;
+end;
+
+function TBudgetList.GetCount: Integer;
+begin
+  Result := fList.Count;
+end;
+
+function TBudgetList.GetItem(Index: Integer): TBudgetDesc;
+begin
+  Result := PBudgetDesc( fList[Index] )^;
+end;
+
+procedure TBudgetList.LoadFromFile(aFileName: String);
+begin
+...
+end;
+
+procedure TBudgetList.SetItem(Index: Integer; Item: TBudgetDesc);
+var
+  OldItem: PBudgetDesc;
+begin
+  OldItem := fList[Index];
+  if OldItem <> @Item then begin
+     fList[Index] := nil;
+     Dispose( OldItem );
+  end;
+  fList[Index] := @Item;
+end;
+</code>
+===== TList дженерик==
+[[http://docwiki.embarcadero.com/Libraries/Sydney/en/System.Generics.Collections.TList|System.Generics.Collections.TList - RAD Studio API Documentation]]
+
+You can add nil objects to the list.
+
+An OnNotify event tells you when the list has changed.
+
+<code pascal>
+unit uToDoTypes;
+interface
+uses
+  System.Generics.Collections;
+type
+
+// элемент списка
+  TToDo = record
+    Id: integer;
+    Title: string;
+    Category: string;
+  end;
+  TToDos = TList<TToDo>;
+
+implementation
+end.
+</code>
+
+недописано
+
+Пример из доки:
+<code pascal>
+var
+  List: TList<Integer>;
+  FoundIndex: Integer;
+begin
+  { Create a new List. }
+  List := TList<Integer>.Create;
+  { Add a few values to the list. }
+  List.AddRange([5, 1, 8, 2, 9, 14, 4, 5, 1]);
+
+  writeln('Index of first 1 is ' + IntToStr(List.IndexOf(1)));
+  writeln('Index of last 1 is ' + IntToStr(List.LastIndexOf(1)));
+  writeln('Does List contains element 100? ' + BoolToStr(List.Contains(100)));
+
+  { Add another element to the list. }
+  List.Add(100);
+
+  writeln('There are ' + IntToStr(List.Count) + ' elements in the list.');
+
+  { Remove the first occurrence of 1. }
+  List.Remove(1);
+  { Delete a few elements from position 0. }
+  List.Delete(0);
+  List.DeleteRange(0, 2);
+  { Extract the remaining 1 from the list. }
+  List.Extract(1);
+  { Set the capacity to the actual length. }
+  List.TrimExcess;
+  writeln('Capacity of the list is ' + IntToStr(List.Capacity));
+
+  { Clear the list. }
+  List.Clear;
+  { Insert some elements. }
+  List.Insert(0, 2);
+  List.Insert(1, 1);
+  List.InsertRange(0, [6, 3, 8, 10, 11]);
+
+  { Sort the list. }
+  List.Sort;
+
+  { Binary search for the required element. }
+  if List.BinarySearch(6, FoundIndex) then
+    writeln('Found element 6 at index ' + IntToStr(FoundIndex));
+
+  { Reverse the list. }
+  List.Reverse;
+  writeln('The element on position 0 is ' + IntToStr(List.Items[0]));
+  List.Free;
+  readln;
+end.
+</code>
+  * AddRange - adds a collection of items to the end of a list.
+  * InsertRange
+  * IndexOf  - Searches for an element using linear search. If not found, it returns -1. The BinarySearch method is usually faster, but requires a sorted list.
+  * LastIndexOf 
+  * IndexOfItem(const Value: T; Direction: TDirection): Integer
+  * BinarySearch - returns True if it finds the element and False otherwise. If found, Index contains the zero-based index of Item. If not found, Index contains the index of the first entry larger than Item. BinarySearch requires that the list be sorted. A comparison function AComparer may be provided to compare elements.
+  * BinarySearch(const Item: T; out Index: Integer; const AComparer: IComparer<T>): Boolean; overload;
+  * **Delete** removes the list entry at the given index Index. - по индексу
+  * **Extract** removes the entry Value from the list, returning this value. If Value is not in the list, it returns the default value of its type T. - по значению
+  * Sort;
+  * Sort(const AComparer: IComparer<T>); overload;
+  * Reverse 
+  * Contains 
+  * Clear
+  * Exchange
+  * First
+  * Last
+===== TThreadList =====
+[[http://docwiki.embarcadero.com/Libraries/Sydney/en/System.Classes.TThreadList|System.Classes.TThreadList - RAD Studio API Documentation]]
+
+[[http://docwiki.embarcadero.com/Libraries/Sydney/en/System.Generics.Collections.TThreadList|System.Generics.Collections.TThreadList - RAD Studio API Documentation]]
+
+
+TThreadList - это тоже список, но потокобезопасный, т.е. с ним можно смело работать сразу из нескольких потоков. 
+
+<code pascal>
+  TThreadList = class
+  private
+    FList: TList;
+    FLock: TObject;
+    FDuplicates: TDuplicates;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    procedure Add(Item: Pointer);
+    procedure Clear;
+    function LockList: TList;
+    procedure Remove(Item: Pointer); inline;
+    procedure RemoveItem(Item: Pointer; Direction: TList.TDirection);
+    procedure UnlockList; inline;
+    property Duplicates: TDuplicates read FDuplicates write FDuplicates;
+  end;
+</code>
+
+Набор методов для работы с элементами здесь скромный: Add (добавление элемента), Clear, Remove (удаление элемента) и RemoveItem (удаление элемента с указанием направления поиска). 
+
+А чтобы работать со списком в полную силу (чтение всех элементов, поиск, сортировка), нужно получить доступ к списку TList, который хранится внутри TThreadList. Сделать это можно с помощью функции блокировки **LockList**, которая заблокирует список и вернёт указатель на список TList. После работы со списком TList, список нужно разблокировать с помощью метода **UnlockList**. 
+
+**Add**, **Clear**, **Remove** внутри себя, разумеется, тоже вызывает LockList/UnlockList, поэтому снаружи это делать не надо.
+
+<code pascal>
+function  TThreadList.LockList: TList;
+begin
+  TMonitor.Enter(FLock);
+  Result := FList;
+end;
+
+procedure TThreadList.UnlockList;
+begin
+  TMonitor.Exit(FLock);
+end;
+</code>
+
+Также есть свойство Duplicates (дубликаты), которое задаёт поведение списка при добавлении дубликатов: разрешать добавление дубликатов (dupAccept), игнорировать дубликаты, не добавляя их, (dupIgnore) или генерировать ошибку при добавлении дубликата (dupError). По умолчанию свойство Duplicates имеет значение dupIgnore. Это значит, на больших списках, по умолчанию добавление будет не очень быстрым, по сравнению с dupAccept - если это допустимо по смыслу задачи.
+
+<code pascal>
+program Project1;
+ 
+{$APPTYPE CONSOLE}
+{$R *.res}
+ 
+uses
+  System.SysUtils, System.Generics.Collections, System.Threading;
+var
+   list: TThreadList<integer>;
+   writer, reader: ITask;
+begin
+ try
+   list := TThreadList<integer>.Create;
+   try
+     //Создаём задачу, которая будет добавлять элементы в список.
+     writer := TTask.Create(procedure()
+        var
+          i: integer;
+        begin
+          //Добавляем в список 9 элементов раз в 2 секунды.
+          for i := 1 to 9 do begin
+             //Добавляем в список один элемент.
+             list.Add(Random(100));
+             //Ждём 2 секунды.
+             Sleep(2000);
+          end;
+        end
+      );
+    //Создаём задачу, которая будет читать элементы из списка.
+     reader := TTask.Create(procedure()
+       var
+         listCount: integer;
+         item: integer;
+         internalList: TList<integer>;
+       begin
+         //Читаем список раз в секунду, пока количество элементов не будет равно 9.
+         repeat
+           //Ждём секунду.
+           Sleep(1000);
+          //Блокируем список и одновременно получаем указатель на внутренний список, который хранит элементы.
+          internalList := list.LockList;
+          try
+            //Узнаём количество элементов в списке.
+            listCount := internalList.Count;
+            WriteLn('Количество элементов в списке: ', listCount);
+           //Читаем все элементы списка.
+            Write('Элементы списка: ');
+            for item in internalList do
+                Write(item, '; ');
+            WriteLn;
+          finally
+            //Разблокируем список.
+            list.UnlockList;
+          end;
+         until listCount = 9;
+       end
+     );
+     //Запускаем задачи.
+     writer.Start;
+     reader.Start;
+     //Ждём пока задачи выполнятся.
+     TTask.WaitForAll([writer, reader]);
+   finally
+     list.Free;
+   end;
+   ReadLn;
+ except
+   on E: Exception do
+    Writeln(E.ClassName, ': ', E.Message);
+ end;
+end.
+</code>
+
+В библиотеках вижу, что TThreadList часто используют для хранения потоков или тасков. Например, описывается TThreadList как глобальная переменная. Создается и разрушается она в секциях initialization, finalization. В конструкторе потока он сам себя добавляет в этот список:
+<code pascal>
+constructor TjsdApplication.Create(AContext : TjsdContext);
+  inherited Create(true);
+... 
+  FreeOnTerminate := true;
+  jsdAppInstances.Add(Self);
+... 
+  Resume;
+</code>
+В деструкторе потока:
+<code pascal>
+destructor TjsdApplication.Destroy;
+  jsdAppInstances.Remove(Self);
+  ... 
+  inherited;
+</code>
+
+===== TStack и TObjectStack =====
+[[http://docs.embarcadero.com/products/rad_studio/delphiAndcpp2009/HelpUpdate2/EN/html/delphivclwin32/Contnrs_TStack.html|TStack Class]]
+
+Стек TStack или TObjectStack - это стек элементов, работающий по принципу <последним пришёл - первым вышел> (last in - first out). Добавленные в стек элементы, вытаскиваются из него в обратном порядке. 
+
+  * TStack - массив указателей, Contnrs
+  * TObjectStack - массив объектов
+  * TStack<string> - дженерик, System.Generics.Collections
+
+TObjectStack отличаются тем, что предоставляет механизм автоматического удаления объектов удаляемых из стека.
+
+Стек может быть произвольного размера. В стек можно добавлять nil. При изменении стека срабатывает событие OnNotify.
+
+<code pascal>
+program Project1;
+{$APPTYPE CONSOLE}
+{$R *.res}
+uses
+   System.SysUtils, System.Generics.Defaults,
+   System.Generics.Collections, System.Types;
+var
+   item: string;
+   stack: TStack<string>; // Стек строк
+begin
+   try
+      stack := TStack<string>.Create;
+      try
+         //Добавляем 5 элементов
+         stack.Push('Алексей');
+         stack.Push('Людмила');
+         stack.Push('Сергей');
+         stack.Push('Наталья');
+         stack.Push('Александр');
+         //узнаём количество элементов в стеке - 5 элементов
+         WriteLn('Стек содержит ' + IntToStr(stack.Count) + ' элементов.');
+         //Читаем все элементы в стеке по порядку, т.е. от 'Алексей' до 'Александр'.
+         //Стек при этом не меняется.
+         for item in stack do
+            WriteLn(item);
+
+         //Смотрим последний добавленный элемент без изменения стека.
+         //Если стек пуст, то метод Peek сгенерирует ошибку.
+         //Результат будет 'Александр'.
+         WriteLn(stack.Peek);
+
+         //Извлекаем последний добавленный элемент из стека.
+         //Если стек пуст, то метод Pop сгенерирует ошибку.
+         //Результат будет 'Александр', при этом 'Александр' будет удалён из стека.
+         WriteLn(stack.Pop);
+
+         //Извлекаем последний добавленный элемент из стека.
+         //результат будет 'Наталья', при этом 'Наталья' будет удалён из стека.
+         WriteLn(stack.Pop);
+
+         // удаление всех элементов
+         stack.Clear;
+      finally
+         stack.Free;
+      end;
+      ReadLn;
+   except
+      on e: Exception do
+         Writeln(e.ClassName, ': ', e.Message);
+   end;
+end.
+</code>
+TObjectStack : можно использовать метод Extract, вместо Pop, если не требуется автоматическое удаление извлекаемого элемента.
+
+  * Peek - возвращает указатель на последний элемент
+  * Pop - возвращает указатель на последний элемент и удаляет этот элемент из стека
+  * Push - добавляет элемент в конец списка и возвращает указатель на него
+  * Count
+  * AtLeast - есть элементов не меньше
+
+===== TQueue и TObjectQueue =====
+first-in first-out list
+
+позволяет добавлять элементы в конец, а вытаскивать их из начала. Т.е. из очереди элементы будут считываться в том же порядке, в котором они были туда добавлены.
+
+При добавлении или удалении элемента вызывается событие OnNotify. В очередь можно добавлять nil.
+
+  * TQueue - Contnrs
+  * TObjectQueue - Contnrs
+  * TQueue<string> - System.Generics.Collections
+<code pascal>
+program Project1;
+{$APPTYPE CONSOLE}
+{$R *.res}
+uses
+   System.SysUtils, System.Generics.Defaults,
+   System.Generics.Collections, System.Types;
+var
+   item: string;
+   queue: TQueue<string>; //Очередь строк
+begin
+   try
+      queue := TQueue<string>.Create;
+      try
+         //Добавляем 5 элементов.
+         queue.Enqueue('Алексей');
+         queue.Enqueue('Людмила');
+         queue.Enqueue('Сергей');
+         queue.Enqueue('Наталья');
+         queue.Enqueue('Александр');
+         //Узнаём количество элементов в очереди - 5 элементов.
+         WriteLn('Очередь содержит ' + IntToStr(queue.Count) + ' элементов.');
+
+       //Читаем все элементы в очереди по порядку, т.е. от 'Алексей' до 'Александр'
+       //Очередь при этом не меняется.
+         for item in queue do
+            WriteLn(item);
+
+         //Смотрим первый добавленный элемент без изменения очереди.
+         //Если очередь пуста, то метод Peek сгенерирует ошибку.
+         WriteLn(queue.Peek); //Результат 'Алексей'
+
+         //Извлекаем первый добавленный элемент из очереди.
+         //Если очередь пуста, то метод Dequeue сгенерирует ошибку.
+         //Результат 'Алексей', при этом 'Алексей' будет удалён из очереди.
+         WriteLn(queue.Dequeue);
+
+         //Извлекаем первый добавленный элемент из очереди.
+         //результат 'Людмила', при этом 'Людмила' будет удалён из очереди.
+         WriteLn(queue.Dequeue);
+         //удаление всех элементов.
+         queue.Clear;
+      finally
+         queue.Free;
+      end;
+      ReadLn;
+   except
+      on e: Exception do
+         Writeln(e.ClassName, ': ', e.Message);
+   end;
+end.
+</code>
+
+TObjectQueue : можно использовать метод Extract вместо метода Dequeue, если не требуется автоматическое удаление извлекаемого элемента.
+
+TObjectQueue:
+  * Push = Insert(0, AItem);
+  * Peek 
+  * Pop
+В дженериках:
+  * Enqueue(const Value: T)
+  * function Dequeue: T; - извлечь из очереди первый добавленный элемент 
+  * function Extract: T; 
+  * function Peek: T; 
+  * procedure Clear; 
+  * procedure TrimExcess; = SetCapacity(Count)
+  * property Count
+  * property Capacity
+  * property OnNotify: TCollectionNotifyEvent<T>
+  * function ToArray: TArray<T>; 
+
+===== TThreadedQueue =====
+System.Generics.Collections
+
+ещё одна реализация очереди. Для вставки и изъятия элементов из разных потоков. 
+
+Для этой очереди задаётся ограничение на максимальное количество находящихся в ней элементов, и, если очередь максимально заполнена и какой либо поток пытается добавить ещё один элемент, то этот поток ожидает, пока в очереди появится свободное место или пока не истечёт время ожидания.
+
+подходит, например, для реализации какого либо сервера, который принимает сообщения от клиентов в одном потоке (или нескольких потоках) и складывает их в очередь, а затем берёт эти сообщения из очереди и обрабатывает их в другом потоке (или нескольких потоках).
+
+Внутри очередь представлена массивом: private FQueue: array of T;
+
+TWaitResult = (wrSignaled, wrTimeout, wrAbandoned, wrError, wrIOCompletion);
+
+  * constructor TThreadedQueue<T>.Create(AQueueDepth: Integer = 10; PushTimeout: Cardinal = INFINITE; PopTimeout: Cardinal = INFINITE);
+  * function PushItem(const AItem: T): TWaitResult; overload;
+  * function PushItem(const AItem: T; var AQueueSize: Integer): TWaitResult; 
+  * function PopItem: T; overload;
+  * function PopItem(var AQueueSize: Integer): T; 
+  * function PopItem(var AQueueSize: Integer; var AItem: T): TWaitResult; 
+  * function PopItem(var AItem: T): TWaitResult; 
+  * procedure DoShutDown;
+
+  *  property QueueSize: Integer read FQueueSize;
+  *  property ShutDown: Boolean read FShutDown;
+  *  property TotalItemsPushed: Cardinal read FTotalItemsPushed;
+  *  property TotalItemsPopped: Cardinal read FTotalItemsPopped;
+
+[реализацию не поняла вообще, посмотреть когда будет время]
+
+Пример использования:
+
+<code pascal>
+program Project1;
+{$APPTYPE CONSOLE}
+{$R *.res}
+uses
+   System.SysUtils, System.Generics.Defaults,
+   System.Generics.Collections, System.Types, System.Threading;
+var
+   queue: TThreadedQueue<string>;
+   //Потоки для записи в очередь и чтения из неё
+   writer, reader: ITask;
+begin
+   try
+    //Создаём очередь. Здесь специально делаем размер очереди (всего 5 элементов)
+    //и время ожидания на постановку в очередь (всего 1 сек.) очень маленькими.
+    queue := TThreadedQueue<string>.Create(5, 1000);
+    try
+     //Создаём задачу, которая будет писать сообщения в поток.
+       writer := TTask.Create(procedure()
+          var
+             i: integer;
+             message: string;
+             waitResult: TWaitResult;
+          begin
+             for i := 1 to 9 do begin
+                message := Format('Сообщение %d. Создано в %s.',
+                   [i, FormatDateTime('hh:nn:ss.zzz', Time)]);
+            //Пишем сообщение в очередь.
+                waitResult := queue.PushItem(message);
+            //Если превышено разрешённое время ожидания, то выдаём сообщение об этом
+                if waitResult = wrTimeout then
+                   WriteLn(Format('ОШИБКА! Не удалось отправить '+
+                      'сообщение %d. Истекло время ожидания.', [i]));
+             end;
+          end
+         );
+     //Создаём задачу, которая будет читать сообщения из потока.
+       reader := TTask.Create(procedure()
+        var
+           message: string;
+        begin
+           //Читаем сообщения из очереди, пока они там есть.
+            repeat
+             //Читаем первое сообщение в очереди и одновременно вынимаем его оттуда.
+             message := queue.PopItem;
+             //Выдаём сообщение на консоль, заодно отображаем время его получения.
+             WriteLn(message, ' Получено в ' + FormatDateTime('hh:nn:ss.zzz', Time));
+             //Ждём 2 секунды (как будто сообщение очень долго обрабатывается).
+             Sleep(2000);
+           until queue.QueueSize = 0;
+        end
+        );
+       //Запускаем писателя.
+       writer.Start;
+       Sleep(1000);
+       //Запускаем читателя.
+       reader.Start;
+       //Ждём пока обе задачи отработают.
+       TTask.WaitForAll([writer, reader]);
+       //Выдаём статистические данные:)
+       WriteLn('Всего сообщений отправлено: ', queue.TotalItemsPushed);
+       WriteLn('Всего сообщений получено: ', queue.TotalItemsPopped);
+    finally
+       queue.Free;
+    end;
+    ReadLn;
+   except
+     on e: Exception do
+        Writeln(e.ClassName, ': ', e.Message);
+   end;
+end.
+</code>
+Здесь чтение из очереди умышленно делается очень медленно, раз в 2 секунды. А записывающий поток пытается записать всё сразу. У него бы и получилось записать сразу все 9 сообщений, но у нас установлено ограничение на максимальный размер очереди - всего 5 элементов. Поэтому он записывает первые пять сообщений сразу, а при попытке записать шестое сообщение зависает в ожидании, пока в очереди не освободится место. Но мы опять же специально ограничили время ожидания всего одной секундой, поэтому через секунду он перестаёт ждать и выдаёт ошибку. То же самое происходит и со следующим седьмым сообщением. А вот к моменту отправки восьмого сообщения в очереди появляется свободное место и сообщение успешно записывается. С девятым опять случается неудача, потому, что только что на свободное место было записано сообщение 8 и очередь опять заполнена, а чтение происходит ну оооочень медленно...
+
+функция **DoShutDown** объявляет, что очередь остановлена (после вызова этой функции новые элементы в очередь не добавляются, т.е. при вызове метода PushItem ничего не происходит), 
+
+свойство **ShutDown**, с помощью которого вы можете проверить, остановлена очередь или нет.  после остановки очереди вы всё равно сможете считать попавшие туда элементы.
+===== TStringList =====
+Общие замечания по использованию TStringList:
+
+  - Duplicates := dupIgnore не работает, если TStringList не отсортирован (свойство Sorted)
+  - При заполнении списка используйте пару BeginUpdate / EndUpdate (чтобы не вызывался Changed)
+  - Включать сортировку для TStringList, в котором будут хранится пары ключ-значение бессмысленно, если затем поиск идет не по всей строке, а только по ключу. IndexOfName всегда ищет последовательным перебором, каждый раз вычленяя ключ из всей строки (т.е. сортировка ускоряет работу IndexOf, но не IndexOfName, не говоря уже о том, что на сортировку по паре ключ-значение уходит больше времени, чем на сортировку только по ключу).
+  - Обращение к свойству TStringList.Values - означает вызов IndexOfName. Причем если установлено новое значение - пустая строка, то пара удаляется, а если такого ключа в списке еще нет - то пара добавляется в список
+  * ValueFromIndex - прямое обращение по индексу и вырезание значения
+  * NameValueSeparator - можно изменить символ-разделитель ключ=значение
+  * IndexOfObject всегда ищет перебором
+  * AddStrings в цикле добавляет все элементы с помощью вызова AddObject
+
+Новые методы и свойства в 10.1 для TStrings: new overloaded constructors, Options, KeyNames, SetStrings (аналог Assign), TrailingLineBreak, Updating, UseLocale, ExtractName 
+<code pascal>function TStrings.AddPair(const Name, Value: string): TStrings;
+begin
+  Add(Name + NameValueSeparator + Value);
+  Result := Self;
+end;
+</code>
+
+Как альтернативу ''TStringList'' можно использовать дженерик ''TDictionary<>''.
+
+==== ExtractStrings - разбор строки ====
+
+<code pascal>uses
+  Classes;
+var
+  List: TStrings;
+begin
+  List := TStringList.Create;
+  try
+    ExtractStrings([':'], [], PChar('word:doc,txt,docx'), List);
+    WriteLn(List.Text);
+  finally
+    List.Free;
+  end;
+end.</code>
+==== Сортировка строк как чисел ===
+
+<code pascal>function StrCmpLogicalW(sz1, sz2: PWideChar): Integer; stdcall;
+  external 'shlwapi.dll' name 'StrCmpLogicalW';
+
+function MyCompare(List: TStringList; Index1, Index2: Integer): Integer;
+begin
+  Result := StrCmpLogicalW(PWideChar(List[Index1]), PWideChar(List[Index2]));
+end;
+// Usage:
+  StringList.CustomSort(MyCompare);
+</code>  
+
+
+==== Кастомная сортировка ====
+К пример, сортировать только по пути, без учета имени файла:
+<code pascal>function Compare(List: TStringList; Index1, Index2: Integer): Integer;
+begin
+  Result := CompareStr(
+    LowerCase(ExtractFileName(List[Index1])),
+    LowerCase(ExtractFileName(List[Index2]))
+  );
+end;
+
+YourStrList.CustomSort(Compare);</code>
+
+Сортировка строк как чисел:
+
+<code pascal>
+function MySortProc(List: TStringList; Index1, Index2: Integer): Integer;
+var
+  Value1, Value2: Integer;
+begin
+  Value1 := StrToInt(List[Index1]);
+  Value2 := StrToInt(List[Index2]);
+  if Value1 < Value2 then
+    Result := -1
+  else if Value2 < Value1 then
+    Result := 1
+  else
+    Result := 0;
+end;
+
+SL.CustomSort(MySortProc);</code>
+
+Можно использовать функцию ''System.Math.CompareValue'' для сравнения любых типов чисел.
+
+Alternatively, you can use ''StrCmpLogicalW()'' to let Windows compare the strings for you:
+
+<code pascal>
+function StrCmpLogicalW(const psz1, psz2: PWideChar): Integer; stdcall; external 'Shlwapi.dll';
+
+function MySortProc(List: TStringList; Index1, Index2: Integer): Integer;
+begin
+  Result := StrCmpLogicalW(PChar(List[Index1]), PChar(List[Index2]));
+end;</code>
+
+===== TStringList vs TStringStream =====
+
+[[https://marc.durdin.net/2011/10/comparing-tstringstream-vs-tstringlist-for-writing-unicode-strings-to-streams-2/|источник]]
+
+Разница в сохранении строки в файл в кодировке UTF8:
+  * TStringList prepends the preamble bytes (BOM)
+  * TStringList добавляет ''#10#13'' в конец файла, если его там не было в вашем тексте.
+  * TStringList конвертирует все одиночные ''#10'' и  ''#13'' в ''#10#13''.
+
+Для случая когда строки должны буферизироваться без изменений TStringStream подходит значительно лучше. Но если нужна преамбула System.WideStrUtils.sUTF8BOMString, нужна дополнительная работа по доработке SaveToFile (что мешает добавить эти три байта в начало строки - см. ниже).
+
+<code pascal>procedure TForm1.SaveToFile;
+const
+  AString = 'This is some Unicode text'#13+
+            'Test Unicode c ? ?';
+begin
+  with TStringList.Create do
+  try
+    Text := AString;
+    SaveToFile('TStringList UTF8.txt', TEncoding.UTF8);
+  finally
+    Free;
+  end;
+
+  with TStringStream.Create(AString, TEncoding.UTF8) do
+  try
+    SaveToFile('TStringStream UTF8.txt');
+  finally
+    Free;
+  end;
+end;</code>
+
+you can of course modify your TStringStream before saving it with SaveToFile.
+
+But ''#EF#BB#BF'' (use the constant sUTF8BOMString in System.WideStrUtils.pas) is incorrect - you need to prepend the UTF-16 equivalent ''<nowiki>#$FEFF</nowiki>'' (use the somewhat less obvious constant BOM_LSB_FIRST in System.Types.pas) because TStringStream is passed a UnicodeString in its constructor:
+
+<code pascal>with TStringStream.Create(BOM_LSB_FIRST + MyString, TEncoding.UTF8) do
+try
+  SaveToFile('myfile.txt');
+finally
+  Free;
+end;
+</code>
+
+См также [[/delphi/classes/strings#tencoding|Строки - encoding]]
+==== THashedStringList ===
+''THashedStringList'' (модуль dea.lists.pas) - потомок TStringList, в котором улучшена скорость за счет хеширования. При изменении списка хеш полностью перестраивается, поэтому лучше использовать для списков, которые формируются при создании и затем редко меняются или не меняются вообще.
+
+Обращение к элементам словаря через Values, Names, IndexOf, IndexOfName.
+
+Имеет два хеша - только ключи FNameHash и строки целиком FValueHash. Ключи хранятся как строки, значения хранятся как индекс строки в оригинальном списке (то есть строки целиком не копируются).
+
+Перестройка хешей идет при обращении к элементу по IndexOf или IndexOfName (т.е при создании списка время и память не тратятся на хеши, и если нет обращений по IndexOfName - то хеш ключей не строится, и если нет обращений по IndexOf - то хеш значений тоже не строится).
+
+По умолчанию создается хеш-таблица на 256 элементов (массив указателей на списки). Таким образом, THashedStringList остается потомком TStringList (что позволяет безболезненно заменять TStringList на THashedStringList в старых проектах), но при этом поиск по ключу идет быстрее (ориентировочно в списке 2000 строк 2 мс против 50 мс).
+
+Резюме: не имеет смысла использовать для маленьких или часто меняющихся списков, а также отсортированных списков не типа ключ-значение. Хотя еще неизвестно, что занимает больше времени - сортировка строк или поиск по хешу, особенно при условии, что строк много, а найти нужно будет не так много строк, тогда выигрыш при поиске в отсортированном массиве может не покрыть убыток от сортировки.
+
+В отсортированных списках схема такая: IndexOf здесь игнорирует отсортированность, поэтому вызывать Find для поиска по всей строке и IndexOfName для поиска по ключу.
+
+Общее: 
+  * используйте Find в отсортированных списках (ищет методом половинного деления).
+  * IndexOf в неотсортированных списках ищет полным перебором, в отсортированных списках вызывает Find.
+  * IndexOfName всегда ищет перебором
+===== Другие стандартные классы ===
+  * TStack, TQueue, TList - для работы с Pointer (модуль Contnrs)
+  * TObjectList, TObjectStack, TObjectQueue - для работы с TObject
+  * TComponentList, TClassList, TInterfaceList
+
+=== TBucketList (модуль Contnrs) ==
+простая хеш-таблица для хранения данных типа Pointer при помощи идентификаторов типа Pointer. Наследник TObject. Дубликаты не допускаются (выдает ИС).Методы: Add Exists Find ForEach Remove
+
+===  TObjectBucketList ==
+для хранения объектов, индексируемых через другие объекты
+
+=== TParams ==
+используется в датасетах, например, параметры SQL-запроса. Наследник TCollection.
+  * property ParamValues[ключи]: Variant - ключи могут быть перечислены через ;. Тогда значения возвращаются в вариантном массиве
+
+.end.

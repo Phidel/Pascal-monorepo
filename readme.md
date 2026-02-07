@@ -2,4 +2,6 @@
 
 [Slicer](Slicer/readme.md) - утилитка, которая вырезает подстроку из текстового файла
 
+[unclip](unclip/readme.md) - перенаправляет буфер обмена Windows на stdout 
+
 [lfm-replacer](lfm-replacer/readme.md) - замены по списку в текстовых файлах. В частности, для замен компонент в lfm-формах lazarus 

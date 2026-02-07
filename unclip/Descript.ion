@@ -1,0 +1,4 @@
+﻿test.txt большой текст для тестирования
+fpc.cmd compile and run
+putclip как писать в буфер без clipbrd для полноты
+unclip.dpr лазарус (портировано с delphi)  
